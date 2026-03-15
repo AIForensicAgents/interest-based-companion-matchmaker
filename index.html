@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scale=no">
+<title>CompanionMatch — Find Your People</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        primary: { 50:'#f0f7f4', 100:'#d9ede2', 200:'#b5dcc7', 300:'#84c4a5', 400:'#56a880', 500:'#3a8d66', 600:'#2c7152', 700:'#245b43', 800:'#1f4937', 900:'#1a3d2e' },
+        warm: { 50:'#fdf8f0', 100:'#f9ecd8', 200:'#f3d6af', 300:'#ebb97d', 400:'#e39a4e', 500:'#d97f2a', 600:'#c46620', 700:'#a34d1c', 800:'#853e1e', 900:'#6d341b' },
+        cream: '#faf7f2',
+        softgray: '#f5f3ef',
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        serif: ['Merriweather', 'Georgia', 'serif'],
+      }
+    }
+  }
+}
+</script>
+<style>
+  [x-cloak] { display: none !important; }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: #faf7f2; }
+  .chat-bubble { animation: fadeUp 0.4s ease-out; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+  .thinking { animation: pulse-soft 1.2s ease-in-out infinite; }
+  .match-card { transition: all 0.3s ease; }
+  .match-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+  input, select, textarea, button { font-size: 16px !important; }
+  .touch-target { min-height: 48px; min-width: 48px; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-thumb { background: #b5dcc7; border-radius: 3px; }
+</style>
+</head>
+<body class="min-h-screen bg-cream" x-data="app()" x-init="init()">
+
+<!-- Header -->
+<header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-primary-100 shadow-sm">
+  <div class="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span class="text-2xl">🤝</span>
+      <h1 class="font-serif font-bold text-xl text-primary-800">CompanionMatch</h1>
+    </div>
+    <div class="flex items-center gap-2">
+      <template x-if="currentScreen !== 'welcome' && currentScreen !== 'onboarding'">
+        <button @click="showMenu = !showMenu" class="touch-target p-2 rounded-full hover:bg-primary-50 text-primary-700">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+      </template>
+    </div>
+  </div>
+  <!-- Menu Dropdown -->
+  <div x-show="showMenu" x-cloak @click.away="showMenu=false" class="absolute right-4 top-14 bg-white rounded-xl shadow-lg border border-gray-100 py-2 w-56 z-50">
+    <button @click="goTo('matches'); showMenu=false" class="w-full text-left px-4 py-3 hover:bg-primary-50 text-primary-800 touch-target flex items-center gap-3">
+      <span>💚</span> My Matches
+    </button>
+    <button @click="goTo('events'); showMenu=false" class="w-full text-left px-4 py-3 hover:bg-primary-50 text-primary-800 touch-target flex items-center gap-3">
+      <span>📅</span> Events & Activities
+    </button>
+    <button @click="goTo('icebreakers'); showMenu=false" class="w-full text-left px-4 py-3 hover:bg-primary-50 text-primary-800 touch-target flex items-center gap-3">
+      <span>💬</span> Icebreakers
+    </button>
+    <button @click="goTo('profile'); showMenu=false" class="w-full text-left px-4 py-3 hover:bg-primary-50 text-primary-800 touch-target flex items-center gap-3">
+      <span>👤</span> My Profile
+    </button>
+    <hr class="my-1">
+    <button @click="resetApp(); showMenu=false" class="w-full text-left px-4 py-3 hover:bg-red-50 text-red-600 touch-target flex items-center gap-3">
+      <span>🔄</span> Start Over
+    </button>
+  </div>
+</header>
+
+<main class="max-w-lg mx-auto px-4 pb-24">
+
+  <!-- WELCOME SCREEN -->
+  <section x-show="currentScreen === 'welcome'" x-cloak class="pt-12 text-center">
+    <div class="mb-8">
+      <div class="text-6xl mb-4">🌿</div>
+      <h2 class="font-serif text-3xl font-bold text-primary-800 mb-3">Welcome to<br>CompanionMatch</h2>
+      <p class="text-lg text-gray-600 leading-relaxed max-w-sm mx-auto">
+        Find compatible companions and accessible activities — on your terms, at your pace.
+      </p>
+    </div>
+    <div class="space-y-4 mb-8">
+      <div class="flex items-center gap-3 bg-white rounded-xl p-4 text-left shadow-sm">
+        <span class="text-2xl">🔒</span>
+        <div><p class="font-semibold text-primary-800">Privacy First</p><p class="text-sm text-gray-500">Your data stays on your device</p></div>
+      </div>
+      <div class="flex items-center gap-3 bg-white rounded-xl p-4 text-left shadow-sm">
+        <span class="text-2xl">♿</span>
+        <div><p class="font-semibold text-primary-800">Accessibility Aware</p><p class="text-sm text-gray-500">Matches consider your needs</p></div>
+      </div>
+      <div class="flex items-center gap-3 bg-white rounded-xl p-4 text-left shadow-sm">
+        <span class="text-2xl">💬</span>
+        <div><p class="font-semibold text-primary-800">Conversation Helpers</p><p class="text-sm text-gray-500">Icebreakers to ease the first hello</p></div>
+      </div>
+    </div>
+    <button @click="goTo('onboarding')" class="touch-target w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold text-lg rounded-2xl py-4 px-6 shadow-lg transition-all active:scale-[0.98]">
+      Let's Get Started 🌟
+    </button>
+    <p class="text-xs text-gray-400 mt-4">No account needed. Everything stays on your phone.</p>
+  </section>
+
+  <!-- ONBOARDING (Conversational) -->
+  <section x-show="currentScreen === 'onboarding'" x-cloak class="pt-6">
+    <div class="mb-4">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-medium text-primary-700">Setting up your profile</span>
+        <span class="text-sm text-gray-400" x-text="`Step ${onboardStep} of 6`"></span>
+      </div>
+      <div class="w-full bg-primary-100 rounded-full h-2">
+        <div class="bg-primary-500 h-2 rounded-full transition-all duration-500" :style="`width: ${(onboardStep/6)*100}%`"></div>
+      </div>
+    </div>
+
+    <!-- Chat-style messages -->
+    <div class="space-y-4 mb-6" id="chatArea">
+      <template x-for="msg in chatMessages" :key="msg.id">
+        <div class="chat-bubble" :class="msg.from === 'bot' ? 'flex gap-3' : 'flex gap-3 justify-end'">
+          <template x-if="msg.from === 'bot'">
+            <div class="flex-shrink-0 w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center text-lg">🌿</div>
+          </template>
+          <div :class="msg.from === 'bot' ? 'bg-white border border-primary-100 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[85%] shadow-sm' : 'bg-primary-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 max-w-[85%] shadow-sm'">
+            <p class="text-[15px] leading-relaxed" x-html="msg.text"></p>
+          </div>
+        </div>
+      </template>
+      <div x-show="isThinking" class="chat-bubble flex gap-3">
+        <div class="flex-shrink-0 w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center text-lg">🌿</div>
+        <div class="bg-white border border-primary-100 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm thinking">
+          <p class="text-gray-400">Thinking...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 1: Name -->
+    <div x-show="onboardStep === 1" class="space-y-3">
+      <input x-model="profile.name" type="text" placeholder="Your first name" class="touch-target w-full border-2 border-primary-200 focus:border-primary-500 rounded-xl px-4 py-3 bg-white text-lg outline-none transition" @keyup.enter="nextOnboardStep()">
+      <button @click="nextOnboardStep()" :disabled="!profile.name.trim()" class="touch-target w-full bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 text-white font-semibold rounded-xl py-3 transition">Continue</button>
+    </div>
+
+    <!-- Step 2: Interests -->
+    <div x-show="onboardStep === 2" class="space-y-3">
+      <div class="flex flex-wrap gap-2">
+        <template x-for="interest in availableInterests" :key="interest">
+          <button @click="toggleInterest(interest)" :class="profile.interests.includes(interest) ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-primary-800 border-primary-200 hover:border-primary-400'" class="touch-target border-2 rounded-full px-4 py-2 text-sm font-medium transition">
+            <span x-text="interest"></span>
+          </button>
+        </template>
+      </div>
+      <button @click="nextOnboardStep()" :disabled="profile.interests.length === 0" class="touch-target w-full bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 text-white font-semibold rounded-xl py-3 transition">Continue</button>
+    </div>
+
+    <!-- Step 3: Mobility/Health -->
+    <div x-show="onboardStep === 3" class="space-y-3">
+      <div class="space-y-2">
+        <template x-for="option in mobilityOptions" :key="option.value">
+          <button @click="profile.mobility = option.value" :class="profile.mobility === option.value ? 'bg-primary-50 border-primary-500 ring-2 ring-primary-200' : 'bg-white border-gray-200 hover:border-primary-300'" class="touch-target w-full text-left border-2 rounded-xl px-4 py-3 transition flex items-center gap-3">
+            <span class="text-xl" x-text="option.emoji"></span>
+            <div>
+              <p class="font-medium text-primary-800" x-text="option.label"></p>
+              <p class="text-xs text-gray-500" x-text="option.desc"></p>
+            </div>
+          </button>
+        </template>
+      </div>
+      <div class="mt-3">
+        <label class="text-sm font-medium text-gray-600 mb-1 block">Any specific needs? (optional)</label>
+        <textarea x-model="profile.healthNotes" rows="2" placeholder="e.g., hearing aids, wheelchair accessible venues, allergies..." class="w-full border-2 border-primary-200 focus:border-primary-500 rounded-xl px-4 py-3 bg-white text-sm outline-none transition resize-none"></textarea>
+      </div>
+      <button @click="nextOnboardStep()" :disabled="!profile.mobility" class="touch-target w-full bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 text-white font-semibold rounded-xl py-3 transition">Continue</button>
+    </div>
+
+    <!-- Step 4: Communication Preference -->
+    <div x-show="onboardStep === 4" class="space-y-3">
+      <div class="space-y-2">
+        <template x-for="opt in commOptions" :key="opt.value">
+          <button @click="profile.commStyle = opt.value" :class="profile.commStyle === opt.value ? 'bg-primary-50 border-primary-500 ring-2 ring-primary-200' : 'bg-white border-gray-200 hover:border-primary-300'" class="touch-target w-full text-left border-2 rounded-xl px-4 py-3 transition flex items-center gap-3">
+            <span class="text-xl" x-text="opt.emoji"></span>
+            <div>
+              <p class="font-medium text-primary-800" x-text="opt.label"></p>
+              <p class="text-xs text-gray-500" x-text="opt.desc"></p>
+            </div>
+          </button>
+        </template>
+      </div>
+      <button @click="nextOnboardStep()" :disabled="!profile.commStyle" class="touch-target w-full bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 text-white font-semibold rounded-xl py-3 transition">Continue</button>
+    </div>
+
+    <!-- Step 5: Schedule -->
+    <div x-show="onboardStep === 5" class="space-y-3">
+      <p class="text-sm text-gray-500 mb-1">Select all that apply:</p>
+      <div class="grid grid-cols-2 gap-2">
+        <template x-for="slot in timeSlots" :key="slot.value">
+          <button @click="toggleSchedule(slot.value)" :class="profile.schedule.includes(slot.value) ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-primary-800 border-primary-200'" class="touch-target border-2 rounded-xl px-3 py-3 text-sm font-medium transition text-center">
+            <span class="block text-lg" x-text="slot.emoji"></span>
+            <span x-text="slot.label"></span>
+          </button>
+        </template>
+      </div>
+      <div class="mt-2">
+        <label class="text-sm font-medium text-gray-600 mb-1 block">How far can you travel? (miles)</label>
+        <select x-model="profile.radius" class="touch-target w-full border-2 border-primary-200 focus:border-primary-500 rounded-xl px-4 py-3 bg-white outline-none">
+          <option value="5">Up to 5 miles</option>
+          <option value="10">Up to 10 miles</option>
+          <option value="25">Up to 25 miles</option>
+          <option value="50">Up to 50 miles</option>
+        </select>
+      </div>
+      <button @click="nextOnboardStep()" :disabled="profile.schedule.length === 0" class="touch-target w-full bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 text-white font-semibold rounded-xl py-3 transition">Continue</button>
+    </div>
+
+    <!-- Step 6: Transport -->
+    <div x-show="onboardStep === 6" class="space-y-3">
+      <div class="space-y-2">
+        <template x-for="opt in transportOptions" :key="opt.value">
+          <button @click="toggleTransport(opt.value)" :class="profile.transport.includes(opt.value) ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-primary-800 border-primary-200'" class="touch-target w-full text-left border-2 rounded-xl px-4 py-3 transition flex items-center gap-3">
+            <span class="text-xl" x-text="opt.emoji"></span>
+            <span class="font-medium" x-text="opt.label"></span>
+          </button>
+        </template>
+      </div>
+      <button @click="finishOnboarding()" :disabled="profile.transport.length === 0 || isLoading" class="touch-target w-full bg-warm-500 hover:bg-warm-600 disabled:bg-gray-300 text-white font-semibold rounded-xl py-4 text-lg transition flex items-center justify-center gap-2">
+        <span x-show="!isLoading">Find My Matches 🎉</span>
+        <span x-show="isLoading" class="thinking">Finding your perfect matches...</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- MATCHES SCREEN -->
+  <section x-show="currentScreen === 'matches'" x-cloak class="pt-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-serif text-2xl font-bold text-primary-800">Your Matches 💚</h2>
+      <button @click="refreshMatches()" :disabled="isLoading" class="touch-target text-primary-600 hover:text-primary-800 p-2 rounded-full hover:bg-primary-50 transition">
+        <svg class="w-5 h-5" :class="isLoading && 'animate-spin'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      </button>
+    </div>
+
+    <div x-show="isLoading && matches.length === 0" class="text-center py-12">
+      <div class="text-4xl mb-3 thinking">🔍</div>
+      <p class="text-gray-500">Finding compatible companions...</p>
+    </div>
+
+    <div class="space-y-4">
+      <template x-for="match in matches" :key="match.name">
+        <div class="match-card bg-white rounded-2xl p-5 shadow-sm border border-primary-50">
+          <div class="flex items-start gap-4 mb-3">
+            <div class="w-14 h-14 rounded-full flex items-center justify-center text-2xl flex-shrink-0" :style="`background:${match.color || '#d9ede2'}`" x-text="match.emoji || '😊'"></div>
+            <div class="flex-1 min-w-0">
+              <h3 class="font-semibold text-lg text-primary-800" x-text="match.name"></h3>
+              <p class="text-sm text-gray-500" x-text="match.tagline"></p>
+              <div class="flex items-center gap-1 mt-1">
+                <span class="text-xs bg-primary-100 text-primary-700 rounded-full px-2 py-0.5 font-medium" x-text="`${match.compatibility}% match`"></span>
+                <template x-if="match.accessible">
+                  <span class="text-xs bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">♿ Accessible</span>
+                </template>
+              </div>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1 mb-3">
+            <template x-for="interest in match.sharedInterests" :key="interest">
+              <span class="text-xs bg-warm-100 text-warm-700 rounded-full px-2 py-0.5" x-text="interest"></span>
+            </template>
+          </div>
+          <p class="text-sm text-gray-600 mb-3" x-text="match.description"></p>
+          <div class="flex gap-2">
+            <button @click="showIcebreakerFor(match)" class="touch-target flex-1 bg-primary-50 hover:bg-primary-100 text-primary-700 font-medium rounded-xl py-2.5 text-sm transition">💬 Icebreaker</button>
+            <button @click="rsvpMatch(match)" :class="match.rsvped ? 'bg-green-100 text-green-700' : 'bg-primary-600 hover:bg-primary-700 text-white'" class="touch-target flex-1 font-medium rounded-xl py-2.5 text-sm transition">
+              <span x-text="match.rsvped ? '✅ Connected!' : '🤝 Connect'"></span>
+            </button>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Quick Nav -->
+    <div class="mt-6 grid grid-cols-2 gap-3">
+      <button @click="goTo('events')" class="touch-target bg-white rounded-2xl p-4 shadow-sm border border-primary-50 text-center hover:shadow-md transition">
+        <span class="text-2xl block mb-1">📅</span>
+        <span class="text-sm font-medium text-primary-800">Browse Events</span>
+      </button>
+      <button @click="goTo('icebreakers')" class="touch-target bg-white rounded-2xl p-4 shadow-sm border border-primary-50 text-center hover:shadow-md transition">
+        <span class="text-2xl block mb-1">💬</span>
+        <span class="text-sm font-medium text-primary-800">Icebreakers</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- EVENTS SCREEN -->
+  <section x-show="currentScreen === 'events'" x-cloak class="pt-6">
+    <div class="flex items-center gap-2 mb-4">
+      <button @click="goTo('matches')" class="touch-target p-2 rounded-full hover:bg-primary-50 text-primary-700">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <h2 class="font-serif text-2xl font-bold text-primary-800">Events & Activities 📅</h2>
+    </div>
+
+    <div x-show="isLoading && events.length === 0" class="text-center py-12">
+      <div class="text-4xl mb-3 thinking">📅</div>
+      <p class="text-gray-500">Finding accessible events near you...</p>
+    </div>
+
+    <div class="space-y-4">
+      <template x-for="event in events" :key="event.title">
+        <div class="match-card bg-white rounded-2xl p-5 shadow-sm border border-primary-50">
+          <div class="flex items-start gap-3 mb-2">
+            <div class="text-2xl" x-text="event.emoji"></div>
+            <div class="flex-1">
+              <h3 class="font-semibold text-primary-800" x-text="event.title"></h3>
+              <p class="text-sm text-gray-500 flex items-center gap-1">
+                <span>📍</span> <span x-text="event.location"></span>
+              </p>
+              <p class="text-sm text-gray-500 flex items-center gap-1">
+                <span>🕐</span> <span x-text="event.time"></span>
+              </p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1 mb-2">
+            <template x-for="tag in event.tags" :key="tag">
+              <span class="text-xs bg-warm-100 text-warm-700 rounded-full px-2 py-0.5" x-text="tag"></span>
+            </template>
+            <template x-if="event.accessible">
+              <span class="text-xs bg-blue-100 text-blue-700 rounded-full px-2 py-0.5">♿ Accessible</span>
+            </template>
+            <template x-if="event.transport">
+              <span class="text-xs bg-purple-100 text-purple-700 rounded-full px-2 py-0.5">🚗 Ride Available</span>
+            </template>
+          </div>
+          <p class="text-sm text-gray-600 mb-3" x-text="event.description"></p>
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-gray-400" x-text="`${event.groupSize} group`"></span>
+            <button @click="rsvpEvent(event)" :class="event.rsvped ? 'bg-green-100 text-green-700' : 'bg-primary-600 hover:bg-primary-700 text-white'" class="touch-target font-medium rounded-xl py-2.5 px-5 text-sm transition">
+              <span x-text="event.rsvped ? '✅ RSVP\'d!' : '📋 RSVP'"></span>
+            </button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </section>
+
+  <!-- ICEBREAKERS SCREEN -->
+  <section x-show="currentScreen === 'icebreakers'" x-cloak class="pt-6">
+    <div class="flex items-center gap-2 mb-4">
+      <button @click="goTo('matches')" class="touch-target p-2 rounded-full hover:bg-primary-50 text-primary-700">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <h2 class="font-serif text-2xl font-bold text-primary-800">Icebreakers 💬</h2>
+    </div>
+
+    <p class="text-gray-500 text-sm mb-4">Friendly conversation starters to help break the ice with new companions.</p>
+
+    <div x-show="isLoading && icebreakers.length === 0" class="text-center py-12">
+      <div class="text-4xl mb-3 thinking">💬</div>
+      <p class="text-gray-500">Crafting personalized icebreakers...</p>
+    </div>
+
+    <div class="space-y-3">
+      <template x-for="(ib, idx) in icebreakers" :key="idx">
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-primary-50">
+          <div class="flex items-start gap-3">
+            <span class="text-xl" x-text="ib.emoji"></span>
+            <div class="flex-1">
+              <p class="text-sm font-medium text-primary-700 mb-1" x-text="ib.category"></p>
+              <p class="text-[15px] text-gray-700 leading-relaxed" x-text="ib.text"></p>
+              <p class="text-xs text-gray-400 mt-1 italic" x-text="ib.tip"></p>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <button @click="generateIcebreakers()" :disabled="isLoading" class="touch-target w-full mt-4 bg-warm-500 hover:bg-warm-600 disabled:bg-gray-300 text-white font-semibold rounded-xl py-3 transition">
+      <span x-show="!isLoading">🔄 Generate More Icebreakers</span>
+      <span x-show="isLoading" class="thinking">Creating...</span>
+    </button>
+  </section>
+
+  <!-- PROFILE SCREEN -->
+  <section x-show="currentScreen === 'profile'" x-cloak class="pt-6">
+    <div class="flex items-center gap-2 mb-4">
+      <button @click="goTo('matches')" class="touch-target p-2 rounded-full hover:bg-primary-50 text-primary-700">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <h2 class="font-serif text-2xl font-bold text-primary-800">My Profile 👤</h2>
+    </div>
+
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-primary-50 space-y-4">
+      <div class="text-center">
+        <div class="w-20 h-20 bg-primary-100 rounded-full mx-auto flex items-center justify-center text-3xl mb-2">😊</div>
+        <h3 class="font-semibold text-xl text-primary-800" x-text="profile.name || 'Your Name'"></h3>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Interests</p>
+        <div class="flex flex-wrap gap-1">
+          <template x-for="i in profile.interests" :key="i">
+            <span class="text-xs bg-primary-100 text-primary-700 rounded-full px-2 py-0.5" x-text="i"></span>
+          </template>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Mobility</p>
+        <p class="text-sm text-gray-700" x-text="mobilityOptions.find(m => m.value === profile.mobility)?.label || 'Not set'"></p>
+        <p x-show="profile.healthNotes" class="text-xs text-gray-500 mt-1" x-text="profile.healthNotes"></p>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Communication Style</p>
+        <p class="text-sm text-gray-700" x-text="commOptions.find(c => c.value === profile.commStyle)?.label || 'Not set'"></p>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Availability</p>
+        <div class="flex flex-wrap gap-1">
+          <template x-for="s in profile.schedule" :key="s">
+            <span class="text-xs bg-warm-100 text-warm-700 rounded-full px-2 py-0.5" x-text="timeSlots.find(t => t.value === s)?.label || s"></span>
+          </template>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Travel Radius</p>
+        <p class="text-sm text-gray-700" x-text="`Up to ${profile.radius} miles`"></p>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Transport</p>
+        <div class="flex flex-wrap gap-1">
+          <template x-for="t in profile.transport" :key="t">
+            <span class="text-xs bg-blue-100 text-blue-700 rounded-full px-2 py-0.5" x-text="transportOptions.find(o => o.value === t)?.label || t"></span>
+          </template>
+        </div>
+      </div>
+
+      <button @click="goTo('onboarding'); onboardStep=1; chatMessages=[]; addBotMessage('Welcome back! Let\'s update your profile. What\'s your name?')" class="touch-target w-full bg-primary-50 hover:bg-primary-100 text-primary-700 font-medium rounded-xl py-3 transition mt-2">
+        ✏️ Edit Profile
+      </button>
+    </div>
+  </section>
+
+  <!-- Icebreaker Modal -->
+  <div x-show="showIcebreakerModal" x-cloak class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/30 backdrop-blur-sm" @click.self="showIcebreakerModal = false">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-6 shadow-xl" @click.stop>
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-serif font-bold text-lg text-primary-800">💬 Icebreaker for <span x-text="selectedMatch?.name"></span></h3>
+        <button @click="showIcebreakerModal = false" class="touch-target p-2 rounded-full hover:bg-gray-100">✕</button>
+      </div>
+      <div x-show="modalLoading" class="text-center py-8">
+        <div class="text-3xl thinking mb-2">💬</div>
+        <p class="text-gray-500">Crafting a conversation starter...</p>
+      </div>
+      <div x-show="!modalLoading" class="space-y-3">
+        <template x-for="(ib, idx) in modalIcebreakers" :key="idx">
+          <div class="bg-primary-50 rounded-xl p-4">
+            <p class="text-[15px] text-primary-800 leading-relaxed" x-text="ib.text"></p>
+            <p class="text-xs text-primary-600 mt-2 italic" x-text="ib.tip"></p>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Toast -->
+  <div x-show="errorMessage" x-cloak class="fixed bottom-4 left-4 right-4 max-w-lg mx-auto bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 shadow-lg z-50" x-transition>
+    <div class="flex items-start gap-2">
+      <span class="text-lg">⚠️</span>
+      <div class="flex-1">
+        <p class="text-sm" x-text="errorMessage"></p>
+      </div>
+      <button @click="errorMessage=''" class="touch-target p-1 hover:bg-red-100 rounded">✕</button>
+    </div>
+  </div>
+</main>
+
+<!-- Bottom Nav (only on main screens) -->
+<nav x-show="currentScreen !== 'welcome' && currentScreen !== 'onboarding'" x-cloak class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-primary-100 z-40">
+  <div class="max-w-lg mx-auto flex">
+    <button @click="goTo('matches')" :class="currentScreen === 'matches' ? 'text-primary-600' : 'text-gray-400'" class="touch-target flex-1 flex flex-col items-center py-2 transition">
+      <span class="text-xl">💚</span>
+      <span class="text-[11px] font-medium">Matches</span>
+    </button>
+    <button @click="goTo('events')" :class="currentScreen === 'events' ? 'text-primary-600' : 'text-gray-400'" class="touch-target flex-1 flex flex-col items-center py-2 transition">
+      <span class="text-xl">📅</span>
+      <span class="text-[11px] font-medium">Events</span>
+    </button>
+    <button @click="goTo('icebreakers')" :class="currentScreen === 'icebreakers' ? 'text-primary-600' : 'text-gray-400'" class="touch-target flex-1 flex flex-col items-center py-2 transition">
+      <span class="text-xl">💬</span>
+      <span class="text-[11px] font-medium">Icebreakers</span>
+    </button>
+    <button @click="goTo('profile')" :class="currentScreen === 'profile' ? 'text-primary-600' : 'text-gray-400'" class="touch-target flex-1 flex flex-col items-center py-2 transition">
+      <span class="text-xl">👤</span>
+      <span class="text-[11px] font-medium">Profile</span>
+    </button>
+  </div>
+</nav>
+
+<script>
+// Global AI tracking
+window.aiTotalInputTokens = 0;
+window.aiTotalOutputTokens = 0;
+window.aiTotalTime = 0;
+window.aiTimeByAlias = {};
+
+async function callAI(alias, params, retries = 3) {
+  const start = Date.now();
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const resp = await fetch('https://16504442930.work/run_prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alias, params })
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        if (attempt === retries - 1) {
+          // Format error with AI
+          try {
+            const errResp = await fetch('https://16504442930.work/run_prompt', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                alias: 'genericAI',
+                params: {
+                  prompt: `Reformat this API error into a user-friendly message. Include what the user can try to fix it. Error: ${errText}. Return JSON with exactly: {"message": string (friendly message), "apiResponse": string (the full original error)}. Return only valid JSON.`
+                }
+              })
+            });
+            const errData = await errResp.json();
+            throw new Error(errData.message || `Something went wrong. Please try again. (${errText})`);
+          } catch(e2) {
+            throw new Error(`We had trouble connecting. Please check your internet and try again. Details: ${errText}`);
+          }
+        }
+        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      const data = await resp.json();
+      const elapsed = Date.now() - start;
+      window.aiTotalTime += elapsed;
+      window.aiTimeByAlias[alias] = (window.aiTimeByAlias[alias] || 0) + elapsed;
+      if (data.input_tokens) window.aiTotalInputTokens += data.input_tokens;
+      if (data.output_tokens) window.aiTotalOutputTokens += data.output_tokens;
+      return data;
+    } catch (err) {
+      if (attempt === retries - 1) throw err;
+      await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+    }
+  }
+}
+
+function app() {
+  return {
+    currentScreen: 'welcome',
+    showMenu: false,
+    isLoading: false,
+    isThinking: false,
+    errorMessage: '',
+    onboardStep: 0,
+    chatMessages: [],
+    msgId: 0,
+
+    profile: {
+      name: '',
+      interests: [],
+      mobility: '',
+      healthNotes: '',
+      commStyle: '',
+      schedule: [],
+      radius: '10',
+      transport: []
+    },
+
+    matches: [],
+    events: [],
+    icebreakers: [],
+    showIcebreakerModal: false,
+    selectedMatch: null,
+    modalIcebreakers: [],
+    modalLoading: false,
+
+    availableInterests: [
+      '📚 Reading', '🎨 Arts & Crafts', '🌱 Gardening', '🎵 Music',
+      '🍳 Cooking', '🚶 Walking', '♟️ Board Games', '📷 Photography',
+      '✍️ Writing', '🧘 Yoga/Meditation', '🤝 Volunteering', '🎭 Theater',
+      '🐕 Pet Activities', '🏊 Swimming', '💻 Technology', '🌍 Travel Stories'
+    ],
+
+    mobilityOptions: [
+      { value: 'full', label: 'Fully mobile', desc: 'No restrictions', emoji: '🚶' },
+      { value: 'moderate', label: 'Some limitations', desc: 'Can walk short distances, prefer seated activities', emoji: '🪑' },
+      { value: 'limited', label: 'Limited mobility', desc: 'Use wheelchair, walker, or other aid', emoji: '♿' },
+      { value: 'homebound', label: 'Prefer home/virtual', desc: 'Online or home-visit activities', emoji: '🏠' }
+    ],
+
+    commOptions: [
+      { value: 'chat', label: 'Text/Chat first', desc: 'Get to know people by messaging before meeting', emoji: '💬' },
+      { value: 'phone', label: 'Phone call', desc: 'Prefer a quick call to break the ice', emoji: '📞' },
+      { value: 'inperson', label: 'Meet in person', desc: 'Ready to meet face-to-face at group events', emoji: '🤝' },
+      { value: 'video', label: 'Video call', desc: 'Comfortable with video chats', emoji: '📹' }
+    ],
+
+    timeSlots: [
+      { value: 'weekday_morning', label: 'Weekday Mornings', emoji: '🌅' },
+      { value: 'weekday_afternoon', label: 'Weekday Afternoons', emoji: '☀️' },
+      { value: 'weekday_evening', label: 'Weekday Evenings', emoji: '🌆' },
+      { value: 'weekend_morning', label: 'Weekend Mornings', emoji: '🌄' },
+      { value: 'weekend_afternoon', label: 'Weekend Afternoons', emoji: '🌞' },
+      { value: 'weekend_evening', label: 'Weekend Evenings', emoji: '🌙' }
+    ],
+
+    transportOptions: [
+      { value: 'drive', label: 'I can drive', emoji: '🚗' },
+      { value: 'ride', label: 'I need a ride', emoji: '🚕' },
+      { value: 'public', label: 'Public transit', emoji: '🚌' },
+      { value: 'walk', label: 'Walk/Bike', emoji: '🚶' },
+      { value: 'virtual', label: 'Virtual only', emoji: '💻' }
+    ],
+
+    init() {
+      const saved = localStorage.getItem('companionmatch_profile');
+      if (saved) {
+        try {
+          const p = JSON.parse(saved);
+          this.profile = { ...this.profile, ...p };
+          if (this.profile.name && this.profile.interests.length > 0) {
+            this.currentScreen = 'matches';
+            this.loadSavedData();
+            return;
+          }
+        } catch (e) {}
+      }
+    },
+
+    saveProfile() {
+      localStorage.setItem('companionmatch_profile', JSON.stringify(this.profile));
+    },
+
+    loadSavedData() {
+      const savedMatches = localStorage.getItem('companionmatch_matches');
+      const savedEvents = localStorage.getItem('companionmatch_events');
+      const savedIcebreakers = localStorage.getItem('companionmatch_icebreakers');
+      if (savedMatches) { try { this.matches = JSON.parse(savedMatches); } catch(e){} }
+      if (savedEvents) { try { this.events = JSON.parse(savedEvents); } catch(e){} }
+      if (savedIcebreakers) { try { this.icebreakers = JSON.parse(savedIcebreakers); } catch(e){} }
+      if (this.matches.length === 0) this.refreshMatches();
+      if (this.events.length === 0) this.loadEvents();
+      if (this.icebreakers.length === 0) this.generateIcebreakers();
+    },
+
+    goTo(screen) {
+      this.currentScreen = screen;
+      window.scrollTo(0, 0);
+      if (screen === 'matches' && this.matches.length === 0) this.refreshMatches();
+      if (screen === 'events' && this.events.length === 0) this.loadEvents();
+      if (screen === 'icebreakers' && this.icebreakers.length === 0) this.generateIcebreakers();
+    },
+
+    addBotMessage(text) {
+      this.chatMessages.push({ id: ++this.msgId, from: 'bot', text });
+      this.$nextTick(() => {
+        const el = document.getElementById('chatArea');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      });
+    },
+
+    addUserMessage(text) {
+      this.chatMessages.push({ id: ++this.msgId, from: 'user', text });
+    },
+
+    toggleInterest(interest) {
+      const idx = this.profile.interests.indexOf(interest);
+      if (idx >= 0) this.profile.interests.splice(idx, 1);
+      else this.profile.interests.push(interest);
+    },
+
+    toggleSchedule(slot) {
+      const idx = this.profile.schedule.indexOf(slot);
+      if (idx >= 0) this.profile.schedule.splice(idx, 1);
+      else this.profile.schedule.push(slot);
+    },
+
+    toggleTransport(opt) {
+      const idx = this.profile.transport.indexOf(opt);
+      if (idx >= 0) this.profile.transport.splice(idx, 1);
+      else this.profile.transport.push(opt);
+    },
+
+    async nextOnboardStep() {
+      if (this.onboardStep === 1 && !this.profile.name.trim()) return;
+      if (this.onboardStep === 2 && this.profile.interests.length === 0) return;
+      if (this.onboardStep === 3 && !this.profile.mobility) return;
+      if (this.onboardStep === 4 && !this.profile.commStyle) return;
+      if (this.onboardStep === 5 && this.profile.schedule.length === 0) return;
+
+      // Add user response as chat bubble
+      if (this.onboardStep === 1) {
+        this.addUserMessage(this.profile.name);
+      } else if (this.onboardStep === 2) {
+        this.addUserMessage(this.profile.interests.join(', '));
+      } else if (this.onboardStep === 3) {
+        const mob = this.mobilityOptions.find(m => m.value === this.profile.mobility);
+        this.addUserMessage(mob ? mob.label : this.profile.mobility);
+      } else if (this.onboardStep === 4) {
+        const comm = this.commOptions.find(c => c.value === this.profile.commStyle);
+        this.addUserMessage(comm ? comm.label : this.profile.commStyle);
+      } else if (this.onboardStep === 5) {
+        const slots = this.profile.schedule.map(s => this.timeSlots.find(t => t.value === s)?.label || s);
+        this.addUserMessage(slots.join(', '));
+      }
+
+      this.onboardStep++;
+      this.saveProfile();
+
+      // Bot responds for next step
+      this.isThinking = true;
+      await new Promise(r => setTimeout(r, 600));
+      this.isThinking = false;
+
+      const botMessages = {
+        2: `Wonderful to meet you, <strong>${this.profile.name}</strong>! 😊 Now, what brings you joy? Select all the interests that appeal to you — we'll use these to find your best matches.`,
+        3: `Great choices! 🎯 To ensure we suggest comfortable activities, could you tell me about your mobility? This helps us find accessible venues and events.`,
+        4: `Thank you for sharing. 🙏 Everyone connects differently — how do you prefer to meet new companions at first?`,
+        5: `Perfect! 📅 When are you usually free? This helps us suggest events and meetups at convenient times.`,
+        6: `Almost there! 🎉 One last thing — how do you typically get around? This helps us coordinate rides and choose convenient locations.`
+      };
+
+      if (botMessages[this.onboardStep]) {
+        this.addBotMessage(botMessages[this.onboardStep]);
+      }
+    },
+
+    async finishOnboarding() {
+      const transports = this.profile.transport.map(t => this.transportOptions.find(o => o.value === t)?.label || t);
+      this.addUserMessage(transports.join(', '));
+      this.saveProfile();
+      this.isLoading = true;
+
+      this.isThinking = true;
+      await new Promise(r => setTimeout(r, 800));
+      this.isThinking = false;
+      this.addBotMessage(`All set, ${this.profile.name}! 🌟 I'm now finding your perfect companions and activities. This will just take a moment...`);
+
+      await Promise.all([this.refreshMatches(), this.loadEvents(), this.generateIcebreakers()]);
+
+      this.isLoading = false;
+      this.currentScreen = 'matches';
+    },
+
+    async refreshMatches() {
+      this.isLoading = true;
+      try {
+        const prompt = `You are a companion matchmaking AI for late-career adults and empty-nesters seeking social connection. Based on this user profile, generate 5 diverse, realistic companion matches.
+
+User Profile:
+- Name: ${this.profile.name}
+- Interests: ${this.profile.interests.join(', ')}
+- Mobility: ${this.profile.mobility}
+- Health Notes: ${this.profile.healthNotes || 'None'}
+- Communication Preference: ${this.profile.commStyle}
+- Available Times: ${this.profile.schedule.join(', ')}
+- Travel Radius: ${this.profile.radius} miles
+- Transport: ${this.profile.transport.join(', ')}
+
+Generate matches that share some interests but also bring new perspectives. Include a mix of individual companions and small group activities. Consider accessibility needs.
+
+Return EXACTLY this JSON structure (no extra text):
+{
+  "matches": [
+    {
+      "name": string (realistic first name and last initial),
+      "emoji": string (single emoji representing them),
+      "color": string (hex color for avatar background, use soft warm colors),
+      "tagline": string (short 5-8 word description like "Retired teacher who loves gardening"),
+      "compatibility": number (70-98, percentage match),
+      "accessible": boolean (true if fully wheelchair/mobility accessible),
+      "sharedInterests": string[] (2-4 shared interests from user's list, shorter labels without emoji),
+      "description": string (2-3 sentences about this person and why they'd be a good match),
+      "rsvped": boolean (always false)
+    }
+  ]
+}`;
+
+        const data = await callAI('genericAI', { prompt });
+        if (data && data.matches) {
+          this.matches = data.matches;
+          localStorage.setItem('companionmatch_matches', JSON.stringify(this.matches));
+        }
+      } catch (err) {
+        this.errorMessage = err.message || 'Could not load matches. Please try again.';
+        setTimeout(() => this.errorMessage = '', 5000);
+      }
+      this.isLoading = false;
+    },
+
+    async loadEvents() {
+      this.isLoading = true;
+      try {
+        const prompt = `You are an accessible event recommendation AI for late-career adults and empty-nesters. Based on this user profile, generate 6 curated local events and activities.
+
+User Profile:
+- Interests: ${this.profile.interests.join(', ')}
+- Mobility: ${this.profile.mobility}
+- Health Notes: ${this.profile.healthNotes || 'None'}
+- Available Times: ${this.profile.schedule.join(', ')}
+- Travel Radius: ${this.profile.radius} miles
+- Transport: ${this.profile.transport.join(', ')}
+
+Generate a mix of: volunteer opportunities, social gatherings, classes, outdoor activities, and cultural events. All should be realistic and appropriate for the user's mobility level.
+
+Return EXACTLY this JSON structure (no extra text):
+{
+  "events": [
+    {
+      "title": string (event name),
+      "emoji": string (single emoji),
+      "location": string (realistic venue name and area),
+      "time": string (e.g. "Saturday, 10:00 AM - 12:00 PM"),
+      "tags": string[] (2-3 short tags like "Outdoors", "Social", "Volunteer"),
+      "accessible": boolean (wheelchair accessible),
+      "transport": boolean (ride sharing available),
+      "description": string (2 sentences about the event),
+      "groupSize": string (e.g. "Small (4-8 people)"),
+      "rsvped": boolean (always false)
+    }
+  ]
+}`;
+
+        const data = await callAI('genericAI', { prompt });
+        if (data && data.events) {
+          this.events = data.events;
+          localStorage.setItem('companionmatch_events', JSON.stringify(this.events));
+        }
+      } catch (err) {
+        this.errorMessage = err.message || 'Could not load events. Please try again.';
+        setTimeout(() => this.errorMessage = '', 5000);
+      }
+      this.isLoading = false;
+    },
+
+    async generateIcebreakers() {
+      this.isLoading = true;
+      try {
+        const prompt = `You are a conversational coach helping late-career adults and empty-nesters break the ice with new companions. Generate 6 warm, friendly, low-pressure conversation starters personalized to these interests.
+
+User Interests: ${this.profile.interests.join(', ')}
+Communication Style: ${this.profile.commStyle}
+
+Create icebreakers that feel natural, not forced. Include a mix of questions, shared experience prompts, and light humor. Appropriate for adults 50+ meeting new people.
+
+Return EXACTLY this JSON structure (no extra text):
+{
+  "icebreakers": [
+    {
+      "emoji": string (single emoji),
+      "category": string (e.g. "Shared Interest", "Life Experience", "Light & Fun", "Getting to Know You"),
+      "text": string (the icebreaker question or statement, 1-2 sentences),
+      "tip": string (brief coaching tip on how to use this, 1 short sentence)
+    }
+  ]
+}`;
+
+        const data = await callAI('genericAI', { prompt });
+        if (data && data.icebreakers) {
+          this.icebreakers = data.icebreakers;
+          localStorage.setItem('companionmatch_icebreakers', JSON.stringify(this.icebreakers));
+        }
+      } catch (err) {
+        this.errorMessage = err.message || 'Could not generate icebreakers. Please try again.';
+        setTimeout(() => this.errorMessage = '', 5000);
+      }
+      this.isLoading = false;
+    },
+
+    async showIcebreakerFor(match) {
+      this.selectedMatch = match;
+      this.showIcebreakerModal = true;
+      this.modalLoading = true;
+      this.modalIcebreakers = [];
+
+      try {
+        const prompt = `Generate 3 personalized icebreaker messages for someone wanting to connect with ${match.name}, who is described as: "${match.tagline}". They share these interests: ${match.sharedInterests.join(', ')}. The user prefers ${this.profile.commStyle} communication style. Make them warm, friendly, and natural for adults 50+.
+
+Return EXACTLY this JSON structure (no extra text):
+{
+  "icebreakers": [
+    {
+      "text": string (the icebreaker message, 1-2 sentences),
+      "tip": string (brief tip on delivery or follow-up)
+    }
+  ]
+}`;
+
+        const data = await callAI('genericAI', { prompt });
+        if (data && data.icebreakers) {
+          this.modalIcebreakers = data.icebreakers;
+        }
+      } catch (err) {
+        this.modalIcebreakers = [{ text: `Hi ${match.name}! I noticed we both enjoy ${match.sharedInterests[0]}. I'd love to hear about your experience with it!`, tip: 'Keep it simple and genuine.' }];
+      }
+      this.modalLoading = false;
+    },
+
+    rsvpMatch(match) {
+      match.rsvped = !match.rsvped;
+      localStorage.setItem('companionmatch_matches', JSON.stringify(this.matches));
+    },
+
+    rsvpEvent(event) {
+      event.rsvped = !event.rsvped;
+      localStorage.setItem('companionmatch_events', JSON.stringify(this.events));
+    },
+
+    resetApp() {
+      if (confirm('This will clear all your data and start fresh. Continue?')) {
+        localStorage.removeItem('companionmatch_profile');
+        localStorage.removeItem('companionmatch_matches');
+        localStorage.removeItem('companionmatch_events');
+        localStorage.removeItem('companionmatch_icebreakers');
+        this.profile = { name: '', interests: [], mobility: '', healthNotes: '', commStyle: '', schedule: [], radius: '10', transport: [] };
+        this.matches = [];
+        this.events = [];
+        this.icebreakers = [];
+        this.chatMessages = [];
+        this.onboardStep = 0;
+        this.currentScreen = 'welcome';
+      }
+    }
+  };
+}
+
+// Auto-start onboarding when going to that screen
+document.addEventListener('alpine:init', () => {
+  Alpine.effect(() => {
+    const appData = Alpine.store ? null : document.querySelector('[x-data]')?.__x;
+  });
+});
+
+// Intercept goTo('onboarding') to start chat
+const origGoTo = app().goTo;
+document.addEventListener('DOMContentLoaded', () => {
+  // Watch for onboarding screen activation
+  const observer = new MutationObserver(() => {
+    const el = document.querySelector('[x-data]');
+    if (el && el.__x && el.__x.$data.currentScreen === 'onboarding' && el.__x.$data.onboardStep === 0) {
+      el.__x.$data.onboardStep = 1;
+      el.__x.$data.addBotMessage(`Hello! 👋 I'm your CompanionMatch guide. I'll help you find wonderful companions and activities that fit your life perfectly.<br><br>First, what's your <strong>first name</strong>?`);
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+});
+</script>
+</body>
+</html>
